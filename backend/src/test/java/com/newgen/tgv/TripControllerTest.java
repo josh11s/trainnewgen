@@ -90,7 +90,7 @@ class TripControllerTest {
     void searchTrips_whenPassengersExceedLimit_shouldReturn422ProblemDetail() throws Exception {
         when(tripService.searchTrips(anyString(), anyString(), any(), anyInt(), anyInt(), any()))
                 .thenThrow(new BusinessRuleException(
-                        "error.business.max_passengers_exceeded",
+                        com.newgen.tgv.dto.error.BusinessErrorCode.MAX_PASSENGERS_EXCEEDED,
                         "Booking cannot exceed 9 passengers",
                         Map.of("maxAllowed", 9, "requested", 10)
                 ));

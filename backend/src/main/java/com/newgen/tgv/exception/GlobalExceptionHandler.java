@@ -31,9 +31,9 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 HttpStatus.UNPROCESSABLE_ENTITY,
                 ex.getMessage()
         );
-        problem.setType(URI.create(PROBLEM_BASE_URL + ex.getErrorCode()));
+        problem.setType(URI.create(PROBLEM_BASE_URL + ex.getErrorCodeValue()));
         problem.setTitle("Business Rule Violation");
-        problem.setProperty("errorCode", ex.getErrorCode());
+        problem.setProperty("errorCode", ex.getErrorCodeValue());
         if (!ex.getParams().isEmpty()) {
             problem.setProperty("params", ex.getParams());
         }

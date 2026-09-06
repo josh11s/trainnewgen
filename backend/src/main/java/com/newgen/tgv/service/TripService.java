@@ -18,6 +18,8 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Map;
 
+import com.newgen.tgv.dto.error.BusinessErrorCode;
+
 @Service
 @Transactional(readOnly = true)
 public class TripService {
@@ -41,7 +43,7 @@ public class TripService {
         int totalPassengers = adults + children;
         if (totalPassengers > MAX_PASSENGERS_PER_BOOKING) {
             throw new BusinessRuleException(
-                    "error.business.max_passengers_exceeded",
+                    BusinessErrorCode.MAX_PASSENGERS_EXCEEDED,
                     "Booking cannot exceed " + MAX_PASSENGERS_PER_BOOKING + " passengers per request",
                     Map.of("maxAllowed", MAX_PASSENGERS_PER_BOOKING, "requested", totalPassengers)
             );

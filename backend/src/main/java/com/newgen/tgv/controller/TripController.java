@@ -25,6 +25,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
 
+import com.newgen.tgv.dto.error.BusinessErrorResponse;
+import com.newgen.tgv.dto.error.ValidationErrorResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+
 @Tag(name = "Trips", description = "Operations related to high-speed train journeys and schedules")
 @Validated
 @RestController
@@ -41,14 +45,32 @@ public class TripController {
             summary = "Search available trips with pagination",
             description = "Retrieves available TGV trips matching departure and arrival stations, travel date, and passenger count with paginated results."
     )
-    @ApiResponse(
-            responseCode = "200",
-            description = "Search results page retrieved successfully",
-            content = @Content(
-                    mediaType = "application/json",
-                    schema = @Schema(implementation = TripPageResponse.class)
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Search results page retrieved successfully",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = TripPageResponse.class)
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Invalid input parameters (e.g. invalid date format, adults < 1, children < 0)",
+                    content = @Content(
+                            mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ValidationErrorResponse.class)
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "422",
+                    description = "Business rule violation (e.g. passenger quota exceeded)",
+                    content = @Content(
+                            mediaType = "application/problem+json",
+                            schema = @Schema(implementation = BusinessErrorResponse.class)
+                    )
             )
-    )
+    })
     @GetMapping("/search")
     public ResponseEntity<TripPageResponse> searchTrips(
             @Parameter(description = "Departure station code (e.g. FRPAR)", example = "FRPAR")

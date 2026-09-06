@@ -5,7 +5,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-@Schema(description = "Details of an available train trip")
+@Schema(name = "Trip - SearchResponse", description = "Details of an available train trip")
 public record TripSearchResponse(
         @Schema(description = "Trip unique identifier", example = "1")
         Long id,

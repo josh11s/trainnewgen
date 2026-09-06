@@ -2,7 +2,7 @@ package com.newgen.tgv.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-@Schema(description = "Railway station information")
+@Schema(name = "Station - StationResponse", description = "Railway station information")
 public record StationResponse(
         @Schema(description = "Unique station UIC/IATA code", example = "FRPAR")
         String code,

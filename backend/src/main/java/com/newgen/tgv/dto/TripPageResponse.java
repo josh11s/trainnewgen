@@ -5,7 +5,7 @@ import org.springframework.data.domain.Page;
 
 import java.util.List;
 
-@Schema(description = "Paginated list of available TGV trips")
+@Schema(name = "Trip - PageResponse", description = "Paginated list of available TGV trips")
 public record TripPageResponse(
         @Schema(description = "List of train trips available in the current page")
         List<TripSearchResponse> content,

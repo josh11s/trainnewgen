@@ -73,7 +73,8 @@ class TripServiceTest {
                 () -> tripService.searchTrips("FRPAR", "FRRNS", date, 8, 2, pageable)
         );
 
-        assertEquals("error.business.max_passengers_exceeded", ex.getErrorCode());
+        assertEquals(com.newgen.tgv.dto.error.BusinessErrorCode.MAX_PASSENGERS_EXCEEDED, ex.getErrorCode());
+        assertEquals("error.business.max_passengers_exceeded", ex.getErrorCodeValue());
         assertEquals(9, ex.getParams().get("maxAllowed"));
         assertEquals(10, ex.getParams().get("requested"));
     }
