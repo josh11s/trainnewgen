@@ -30,6 +30,14 @@ export class TranslationService {
       'search.error.same_stations': 'La gare de départ et la gare d’arrivée doivent être différentes.',
       'search.error.missing_date': 'Veuillez sélectionner une date aller.',
       'search.error.no_passengers': 'Au moins un adulte ou enfant doit voyager.',
+      'validation.date.type': 'La date sélectionnée est invalide.',
+      'validation.date.required': 'La date aller est obligatoire.',
+      'validation.adults.min': 'Au moins 1 adulte doit être sélectionné.',
+      'validation.adults.required': 'Le nombre d’adultes est requis.',
+      'validation.children.min': 'Le nombre d’enfants ne peut pas être négatif.',
+      'error.business.max_passengers_exceeded': 'La réservation est limitée à un maximum de {{maxAllowed}} voyageurs par trajet.',
+      'error.generic.title': 'Erreur de saisie',
+      'error.business.title': 'Attention :',
       'results.title': 'Trains disponibles pour votre voyage',
       'results.empty': 'Aucun train disponible pour cette date et cet itinéraire.',
       'results.direct': 'Direct',
@@ -61,6 +69,14 @@ export class TranslationService {
       'search.error.same_stations': 'Departure and arrival stations must be different.',
       'search.error.missing_date': 'Please pick a travel date.',
       'search.error.no_passengers': 'At least one adult or child is required.',
+      'validation.date.type': 'Selected date is invalid.',
+      'validation.date.required': 'Departure date is required.',
+      'validation.adults.min': 'At least 1 adult passenger is required.',
+      'validation.adults.required': 'Number of adults is required.',
+      'validation.children.min': 'Number of children cannot be negative.',
+      'error.business.max_passengers_exceeded': 'Bookings cannot exceed {{maxAllowed}} passengers per trip.',
+      'error.generic.title': 'Input Error',
+      'error.business.title': 'Warning',
       'results.title': 'Available trains for your journey',
       'results.empty': 'No trains found for this route and date.',
       'results.direct': 'Non-stop',
@@ -83,8 +99,14 @@ export class TranslationService {
     this.currentLang.update(lang => (lang === 'fr' ? 'en' : 'fr'));
   }
 
-  t(key: string): string {
+  t(key: string, params?: Record<string, any>): string {
     const lang = this.currentLang();
-    return this.translations[lang][key] || key;
+    let text = this.translations[lang][key] || key;
+    if (params) {
+      Object.keys(params).forEach((p) => {
+        text = text.replace(new RegExp(`{{${p}}}`, 'g'), String(params[p]));
+      });
+    }
+    return text;
   }
 }

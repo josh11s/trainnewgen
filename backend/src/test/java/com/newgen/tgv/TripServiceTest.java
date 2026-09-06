@@ -77,4 +77,18 @@ class TripServiceTest {
 
         assertTrue(responses.isEmpty());
     }
+
+    @Test
+    void shouldThrowBusinessRuleExceptionWhenPassengersExceedLimit() {
+        LocalDate date = LocalDate.of(2026, 9, 10);
+
+        com.newgen.tgv.exception.BusinessRuleException ex = assertThrows(
+                com.newgen.tgv.exception.BusinessRuleException.class,
+                () -> tripService.searchTrips("FRPAR", "FRRNS", date, 8, 2)
+        );
+
+        assertEquals("error.business.max_passengers_exceeded", ex.getErrorCode());
+        assertEquals(9, ex.getParams().get("maxAllowed"));
+        assertEquals(10, ex.getParams().get("requested"));
+    }
 }

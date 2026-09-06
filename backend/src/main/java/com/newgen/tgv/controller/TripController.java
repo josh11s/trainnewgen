@@ -9,9 +9,14 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import org.springframework.validation.annotation.Validated;
 import java.time.LocalDate;
 import java.util.List;
 
+@Validated
 @RestController
 @RequestMapping("/api/v1/trips")
 public class TripController {
@@ -24,11 +29,11 @@ public class TripController {
 
     @GetMapping("/search")
     public ResponseEntity<List<TripSearchResponse>> searchTrips(
-            @RequestParam("origin") String origin,
-            @RequestParam("destination") String destination,
-            @RequestParam("date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
-            @RequestParam(name = "adults", defaultValue = "1") int adults,
-            @RequestParam(name = "children", defaultValue = "0") int children
+            @RequestParam("origin") @NotBlank(message = "Origin station code is required") String origin,
+            @RequestParam("destination") @NotBlank(message = "Destination station code is required") String destination,
+            @RequestParam("date") @NotNull(message = "Date is required") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam("adults") @NotNull(message = "Number of adults is required") @Min(value = 1, message = "At least 1 adult passenger is required") Integer adults,
+            @RequestParam(name = "children", defaultValue = "0") @Min(value = 0, message = "Number of children cannot be negative") int children
     ) {
         List<TripSearchResponse> results = tripService.searchTrips(origin, destination, date, adults, children);
         return ResponseEntity.ok(results);

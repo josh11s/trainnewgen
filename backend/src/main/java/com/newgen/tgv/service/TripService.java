@@ -9,14 +9,18 @@ import com.newgen.tgv.repository.TripRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.newgen.tgv.exception.BusinessRuleException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @Transactional(readOnly = true)
 public class TripService {
+
+    public static final int MAX_PASSENGERS_PER_BOOKING = 9;
 
     private final TripRepository tripRepository;
 
@@ -25,15 +29,24 @@ public class TripService {
     }
 
     public List<TripSearchResponse> searchTrips(String origin, String destination, LocalDate date, int adults, int children) {
+        int totalPassengers = adults + children;
+        if (totalPassengers > MAX_PASSENGERS_PER_BOOKING) {
+            throw new BusinessRuleException(
+                    "error.business.max_passengers_exceeded",
+                    "Booking cannot exceed " + MAX_PASSENGERS_PER_BOOKING + " passengers per request",
+                    Map.of("maxAllowed", MAX_PASSENGERS_PER_BOOKING, "requested", totalPassengers)
+            );
+        }
+
         LocalDateTime startTime = date.atStartOfDay();
         LocalDateTime endTime = date.atTime(LocalTime.MAX);
 
-        int totalPassengers = Math.max(1, adults + children);
+        int passengerCount = Math.max(1, totalPassengers);
 
         List<Trip> trips = tripRepository.searchTrips(origin, destination, startTime, endTime);
 
         return trips.stream()
-                .filter(trip -> (trip.getStandardSeatsAvailable() + trip.getFirstSeatsAvailable()) >= totalPassengers)
+                .filter(trip -> (trip.getStandardSeatsAvailable() + trip.getFirstSeatsAvailable()) >= passengerCount)
                 .map(this::mapToTripSearchResponse)
                 .toList();
     }

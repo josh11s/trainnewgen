@@ -18,6 +18,7 @@ export class TripSearchComponent implements OnInit {
   loading = signal<boolean>(false);
   searched = signal<boolean>(false);
   errorMessage = signal<string | null>(null);
+  fieldErrors = signal<Record<string, string>>({});
 
   origin = '';
   destination = '';
@@ -100,6 +101,7 @@ export class TripSearchComponent implements OnInit {
       return;
     }
 
+    this.fieldErrors.set({});
     this.loading.set(true);
     this.tripService.searchTrips({
       origin: this.origin,
@@ -113,9 +115,16 @@ export class TripSearchComponent implements OnInit {
         this.loading.set(false);
         this.searched.set(true);
       },
-      error: () => {
+      error: (err) => {
         this.loading.set(false);
         this.searched.set(true);
+        if (err?.status === 400 && Array.isArray(err?.error?.invalidParams)) {
+          const errors: Record<string, string> = {};
+          err.error.invalidParams.forEach((param: any) => {
+            errors[param.name] = this.translationService.t(param.messageKey, { defaultValue: param.message });
+          });
+          this.fieldErrors.set(errors);
+        }
       }
     });
   }

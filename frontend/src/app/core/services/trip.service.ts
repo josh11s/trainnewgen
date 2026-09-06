@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable, catchError, of } from 'rxjs';
+import { Observable, catchError, of, throwError } from 'rxjs';
 import { Station, Trip, TripSearchParams } from '../models/trip.model';
 import { ConfigService } from './config.service';
 
@@ -38,8 +38,7 @@ export class TripService {
 
     return this.http.get<Trip[]>(`${this.baseUrl}/trips/search`, { params: httpParams }).pipe(
       catchError((err) => {
-        console.warn('Failed to search trips from backend:', err);
-        return of([]);
+        return throwError(() => err);
       })
     );
   }

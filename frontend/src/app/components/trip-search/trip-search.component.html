@@ -76,8 +76,13 @@
             [(ngModel)]="date" 
             [min]="todayString" 
             class="custom-input"
+            [class.is-invalid]="!!fieldErrors()['date']"
+            (change)="fieldErrors()['date'] = ''"
             required
           />
+          @if (fieldErrors()['date']) {
+            <span class="field-error-msg">{{ fieldErrors()['date'] }}</span>
+          }
         </div>
 
         <!-- Passengers: Adults & Children -->

@@ -98,6 +98,22 @@
     background-color: #ffffff;
     box-shadow: 0 0 0 4px rgba(0, 119, 182, 0.15);
   }
+
+  &.is-invalid {
+    border-color: #ef4444;
+    background-color: #fef2f2;
+    &:focus {
+      border-color: #dc2626;
+      box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.2);
+    }
+  }
+}
+
+.field-error-msg {
+  color: #dc2626;
+  font-size: 0.8rem;
+  font-weight: 500;
+  margin-top: 0.25rem;
 }
 
 .swap-btn {
