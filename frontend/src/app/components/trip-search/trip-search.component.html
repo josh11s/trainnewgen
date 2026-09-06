@@ -174,7 +174,7 @@
       <div class="results-header">
         <h3 class="results-title">
           {{ t('results.title') }}
-          <span class="count-pill">({{ results().length }})</span>
+          <span class="count-pill">({{ totalElements() }})</span>
         </h3>
       </div>
 
@@ -239,6 +239,33 @@
             </div>
           }
         </div>
+
+        <!-- Pagination Bar -->
+        @if (totalPages() > 1) {
+          <div class="pagination-bar">
+            <button 
+              type="button" 
+              class="page-nav-btn" 
+              (click)="goToPage(currentPage() - 1)" 
+              [disabled]="isFirstPage() || loading()"
+            >
+              ← {{ t('pagination.prev') }}
+            </button>
+
+            <span class="page-info">
+              {{ t('pagination.page_of', { page: currentPage() + 1, totalPages: totalPages(), totalElements: totalElements() }) }}
+            </span>
+
+            <button 
+              type="button" 
+              class="page-nav-btn" 
+              (click)="goToPage(currentPage() + 1)" 
+              [disabled]="isLastPage() || loading()"
+            >
+              {{ t('pagination.next') }} →
+            </button>
+          </div>
+        }
       }
     </div>
   }

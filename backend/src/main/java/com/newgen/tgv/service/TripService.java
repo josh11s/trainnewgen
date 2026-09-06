@@ -2,18 +2,20 @@ package com.newgen.tgv.service;
 
 import com.newgen.tgv.dto.AvailableSeatsResponse;
 import com.newgen.tgv.dto.StationResponse;
+import com.newgen.tgv.dto.TripPageResponse;
 import com.newgen.tgv.dto.TripSearchResponse;
+import com.newgen.tgv.exception.BusinessRuleException;
 import com.newgen.tgv.model.Station;
 import com.newgen.tgv.model.Trip;
 import com.newgen.tgv.repository.TripRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.newgen.tgv.exception.BusinessRuleException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.List;
 import java.util.Map;
 
 @Service
@@ -28,7 +30,14 @@ public class TripService {
         this.tripRepository = tripRepository;
     }
 
-    public List<TripSearchResponse> searchTrips(String origin, String destination, LocalDate date, int adults, int children) {
+    public TripPageResponse searchTrips(
+            String origin,
+            String destination,
+            LocalDate date,
+            int adults,
+            int children,
+            Pageable pageable
+    ) {
         int totalPassengers = adults + children;
         if (totalPassengers > MAX_PASSENGERS_PER_BOOKING) {
             throw new BusinessRuleException(
@@ -40,15 +49,19 @@ public class TripService {
 
         LocalDateTime startTime = date.atStartOfDay();
         LocalDateTime endTime = date.atTime(LocalTime.MAX);
-
         int passengerCount = Math.max(1, totalPassengers);
 
-        List<Trip> trips = tripRepository.searchTrips(origin, destination, startTime, endTime);
+        Page<Trip> tripsPage = tripRepository.searchTrips(
+                origin,
+                destination,
+                startTime,
+                endTime,
+                passengerCount,
+                pageable
+        );
 
-        return trips.stream()
-                .filter(trip -> (trip.getStandardSeatsAvailable() + trip.getFirstSeatsAvailable()) >= passengerCount)
-                .map(this::mapToTripSearchResponse)
-                .toList();
+        Page<TripSearchResponse> responsePage = tripsPage.map(this::mapToTripSearchResponse);
+        return TripPageResponse.of(responsePage);
     }
 
     private TripSearchResponse mapToTripSearchResponse(Trip trip) {

@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, catchError, of, throwError } from 'rxjs';
-import { Station, Trip, TripSearchParams } from '../models/trip.model';
+import { Station, TripPageResponse, TripSearchParams } from '../models/trip.model';
 import { ConfigService } from './config.service';
 
 @Injectable({
@@ -28,15 +28,17 @@ export class TripService {
     );
   }
 
-  searchTrips(params: TripSearchParams): Observable<Trip[]> {
-    const httpParams = new HttpParams()
+  searchTrips(params: TripSearchParams): Observable<TripPageResponse> {
+    let httpParams = new HttpParams()
       .set('origin', params.origin)
       .set('destination', params.destination)
       .set('date', params.date)
       .set('adults', params.adults.toString())
-      .set('children', params.children.toString());
+      .set('children', params.children.toString())
+      .set('page', (params.page ?? 0).toString())
+      .set('size', (params.size ?? 5).toString());
 
-    return this.http.get<Trip[]>(`${this.baseUrl}/trips/search`, { params: httpParams }).pipe(
+    return this.http.get<TripPageResponse>(`${this.baseUrl}/trips/search`, { params: httpParams }).pipe(
       catchError((err) => {
         return throwError(() => err);
       })

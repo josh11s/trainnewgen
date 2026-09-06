@@ -1,6 +1,7 @@
 package com.newgen.tgv;
 
 import com.newgen.tgv.controller.TripController;
+import com.newgen.tgv.dto.TripPageResponse;
 import com.newgen.tgv.exception.BusinessRuleException;
 import com.newgen.tgv.service.TripService;
 import org.junit.jupiter.api.Test;
@@ -31,15 +32,20 @@ class TripControllerTest {
 
     @Test
     void searchTrips_whenValidParameters_shouldReturn200() throws Exception {
-        when(tripService.searchTrips(anyString(), anyString(), any(), anyInt(), anyInt()))
-                .thenReturn(Collections.emptyList());
+        TripPageResponse response = new TripPageResponse(Collections.emptyList(), 0, 5, 0, 0, true, true);
+        when(tripService.searchTrips(anyString(), anyString(), any(), anyInt(), anyInt(), any()))
+                .thenReturn(response);
 
         mockMvc.perform(get("/api/v1/trips/search")
                         .param("origin", "FRPAR")
                         .param("destination", "FRRNS")
                         .param("date", "2026-09-10")
-                        .param("adults", "1"))
-                .andExpect(status().isOk());
+                        .param("adults", "1")
+                        .param("page", "0")
+                        .param("size", "5"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(5));
     }
 
     @Test
@@ -82,7 +88,7 @@ class TripControllerTest {
 
     @Test
     void searchTrips_whenPassengersExceedLimit_shouldReturn422ProblemDetail() throws Exception {
-        when(tripService.searchTrips(anyString(), anyString(), any(), anyInt(), anyInt()))
+        when(tripService.searchTrips(anyString(), anyString(), any(), anyInt(), anyInt(), any()))
                 .thenThrow(new BusinessRuleException(
                         "error.business.max_passengers_exceeded",
                         "Booking cannot exceed 9 passengers",

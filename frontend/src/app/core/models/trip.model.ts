@@ -21,10 +21,22 @@ export interface Trip {
   availableSeats: AvailableSeats;
 }
 
+export interface TripPageResponse {
+  content: Trip[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  first: boolean;
+  last: boolean;
+}
+
 export interface TripSearchParams {
   origin: string;
   destination: string;
   date: string; // YYYY-MM-DD
   adults: number;
   children: number;
+  page?: number;
+  size?: number;
 }

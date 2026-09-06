@@ -20,6 +20,13 @@ export class TripSearchComponent implements OnInit {
   errorMessage = signal<string | null>(null);
   fieldErrors = signal<Record<string, string>>({});
 
+  currentPage = signal<number>(0);
+  pageSize = signal<number>(5);
+  totalPages = signal<number>(0);
+  totalElements = signal<number>(0);
+  isFirstPage = signal<boolean>(true);
+  isLastPage = signal<boolean>(true);
+
   origin = '';
   destination = '';
   date = '';
@@ -55,8 +62,8 @@ export class TripSearchComponent implements OnInit {
     return this.adults + this.children;
   }
 
-  t(key: string): string {
-    return this.translationService.t(key);
+  t(key: string, params?: Record<string, any>): string {
+    return this.translationService.t(key, params);
   }
 
   incrementAdults(): void {
@@ -91,6 +98,17 @@ export class TripSearchComponent implements OnInit {
   }
 
   onSearch(): void {
+    this.currentPage.set(0);
+    this.fetchPage(0);
+  }
+
+  goToPage(page: number): void {
+    if (page >= 0 && page < this.totalPages() && page !== this.currentPage()) {
+      this.fetchPage(page);
+    }
+  }
+
+  private fetchPage(page: number): void {
     this.validateStations();
     if (this.errorMessage()) {
       return;
@@ -108,10 +126,17 @@ export class TripSearchComponent implements OnInit {
       destination: this.destination,
       date: this.date,
       adults: this.adults,
-      children: this.children
+      children: this.children,
+      page: page,
+      size: this.pageSize()
     }).subscribe({
-      next: (trips) => {
-        this.results.set(trips);
+      next: (pageResponse) => {
+        this.results.set(pageResponse.content);
+        this.currentPage.set(pageResponse.page);
+        this.totalPages.set(pageResponse.totalPages);
+        this.totalElements.set(pageResponse.totalElements);
+        this.isFirstPage.set(pageResponse.first);
+        this.isLastPage.set(pageResponse.last);
         this.loading.set(false);
         this.searched.set(true);
       },

@@ -46,6 +46,9 @@ export class TranslationService {
       'results.seats_first': 'places 1ère',
       'results.select_btn': 'Choisir ce train',
       'results.duration': 'Durée',
+      'pagination.prev': 'Page précédente',
+      'pagination.next': 'Page suivante',
+      'pagination.page_of': 'Page {{page}} sur {{totalPages}} ({{totalElements}} trains)',
       'swap.tooltip': 'Inverser le sens du trajet',
       'nav.home': 'Accueil',
       'nav.contact': 'Support'
@@ -85,6 +88,9 @@ export class TranslationService {
       'results.seats_first': '1st class seats',
       'results.select_btn': 'Select train',
       'results.duration': 'Duration',
+      'pagination.prev': 'Previous page',
+      'pagination.next': 'Next page',
+      'pagination.page_of': 'Page {{page}} of {{totalPages}} ({{totalElements}} trains)',
       'swap.tooltip': 'Swap departure & arrival',
       'nav.home': 'Home',
       'nav.contact': 'Support'
