@@ -1,0 +1,24 @@
+<header class="navbar">
+  <div class="nav-container">
+    <div class="brand">
+      <div class="brand-logo">
+        <span class="logo-icon">🚄</span>
+        <span class="brand-title">NewGen<span class="accent">TGV</span></span>
+      </div>
+      <span class="brand-tagline">{{ t('brand.tagline') }}</span>
+    </div>
+
+    <nav class="nav-actions">
+      <button 
+        type="button" 
+        class="lang-btn" 
+        (click)="toggleLanguage()" 
+        [attr.aria-label]="'Switch language'"
+      >
+        <span class="lang-flag">{{ currentLang() === 'fr' ? '🇫🇷' : '🇬🇧' }}</span>
+        <span class="lang-code">{{ currentLang().toUpperCase() }}</span>
+        <span class="lang-switch-hint">⇄ {{ currentLang() === 'fr' ? 'EN' : 'FR' }}</span>
+      </button>
+    </nav>
+  </div>
+</header>

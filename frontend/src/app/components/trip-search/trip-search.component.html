@@ -1,0 +1,240 @@
+<div class="search-hero">
+  <div class="search-card">
+    <div class="search-header">
+      <h2 class="search-title">
+        <span class="title-icon">🎯</span> {{ t('search.title') }}
+      </h2>
+    </div>
+
+    <form (ngSubmit)="onSearch()" class="search-form" #form="ngForm">
+      <!-- Row 1: Stations (Departure / Arrival + Swap) -->
+      <div class="stations-row">
+        <div class="input-group station-group">
+          <label for="origin-select" class="input-label">
+            <span class="label-icon">🛫</span> {{ t('search.origin') }}
+          </label>
+          <div class="select-wrapper">
+            <select 
+              id="origin-select" 
+              name="origin" 
+              [(ngModel)]="origin" 
+              (change)="validateStations()"
+              class="custom-select"
+              required
+            >
+              <option value="" disabled>{{ t('search.origin.placeholder') }}</option>
+              @for (st of stations(); track st.code) {
+                <option [value]="st.code">{{ st.name }} ({{ st.city }})</option>
+              }
+            </select>
+          </div>
+        </div>
+
+        <button 
+          type="button" 
+          class="swap-btn" 
+          (click)="swapStations()" 
+          [title]="t('swap.tooltip')"
+          [attr.aria-label]="t('swap.tooltip')"
+        >
+          ⇄
+        </button>
+
+        <div class="input-group station-group">
+          <label for="destination-select" class="input-label">
+            <span class="label-icon">🛬</span> {{ t('search.destination') }}
+          </label>
+          <div class="select-wrapper">
+            <select 
+              id="destination-select" 
+              name="destination" 
+              [(ngModel)]="destination" 
+              (change)="validateStations()"
+              class="custom-select"
+              required
+            >
+              <option value="" disabled>{{ t('search.destination.placeholder') }}</option>
+              @for (st of stations(); track st.code) {
+                <option [value]="st.code">{{ st.name }} ({{ st.city }})</option>
+              }
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 2: Date + Passengers -->
+      <div class="details-row">
+        <!-- Date Aller -->
+        <div class="input-group date-group">
+          <label for="departure-date" class="input-label">
+            <span class="label-icon">📅</span> {{ t('search.date') }}
+          </label>
+          <input 
+            id="departure-date" 
+            type="date" 
+            name="date" 
+            [(ngModel)]="date" 
+            [min]="todayString" 
+            class="custom-input"
+            required
+          />
+        </div>
+
+        <!-- Passengers: Adults & Children -->
+        <div class="passengers-wrapper">
+          <label class="input-label">
+            <span class="label-icon">👥</span> {{ t('search.passengers') }}
+            <span class="passenger-total-badge">{{ totalPassengers }}</span>
+          </label>
+
+          <div class="stepper-boxes">
+            <!-- Adults -->
+            <div class="stepper-box">
+              <div class="stepper-info">
+                <span class="stepper-title">{{ t('search.adults') }}</span>
+                <span class="stepper-hint">{{ t('search.adults.hint') }}</span>
+              </div>
+              <div class="stepper-controls">
+                <button 
+                  type="button" 
+                  class="step-btn" 
+                  (click)="decrementAdults()" 
+                  [disabled]="adults <= 1"
+                >−</button>
+                <span class="step-value">{{ adults }}</span>
+                <button 
+                  type="button" 
+                  class="step-btn" 
+                  (click)="incrementAdults()" 
+                  [disabled]="adults >= 9"
+                >+</button>
+              </div>
+            </div>
+
+            <!-- Children -->
+            <div class="stepper-box">
+              <div class="stepper-info">
+                <span class="stepper-title">{{ t('search.children') }}</span>
+                <span class="stepper-hint">{{ t('search.children.hint') }}</span>
+              </div>
+              <div class="stepper-controls">
+                <button 
+                  type="button" 
+                  class="step-btn" 
+                  (click)="decrementChildren()" 
+                  [disabled]="children <= 0"
+                >−</button>
+                <span class="step-value">{{ children }}</span>
+                <button 
+                  type="button" 
+                  class="step-btn" 
+                  (click)="incrementChildren()" 
+                  [disabled]="children >= 9"
+                >+</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Error Alert -->
+      @if (errorMessage()) {
+        <div class="error-banner">
+          ⚠️ {{ errorMessage() }}
+        </div>
+      }
+
+      <!-- Submit Button -->
+      <div class="search-actions">
+        <button 
+          type="submit" 
+          class="search-submit-btn" 
+          [disabled]="loading() || !!errorMessage() || !origin || !destination"
+        >
+          @if (loading()) {
+            <span class="spinner"></span>
+            <span>{{ t('search.searching') }}</span>
+          } @else {
+            <span class="search-icon">🔍</span>
+            <span>{{ t('search.button') }}</span>
+          }
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Results Container -->
+  @if (searched()) {
+    <div class="results-container">
+      <div class="results-header">
+        <h3 class="results-title">
+          {{ t('results.title') }}
+          <span class="count-pill">({{ results().length }})</span>
+        </h3>
+      </div>
+
+      @if (results().length === 0) {
+        <div class="empty-state">
+          <div class="empty-icon">🚆</div>
+          <p class="empty-text">{{ t('results.empty') }}</p>
+        </div>
+      } @else {
+        <div class="trips-list">
+          @for (trip of results(); track trip.id) {
+            <div class="trip-card">
+              <div class="trip-main">
+                <!-- Departure -->
+                <div class="time-block departure">
+                  <span class="trip-time">{{ trip.departureTime | slice:11:16 }}</span>
+                  <span class="trip-station">{{ trip.departureStation.name }}</span>
+                </div>
+
+                <!-- Journey line indicator -->
+                <div class="journey-indicator">
+                  <span class="journey-duration">{{ formatDuration(trip.durationMinutes) }}</span>
+                  <div class="journey-track">
+                    <span class="track-dot start"></span>
+                    <div class="track-line"></div>
+                    <span class="track-dot end"></span>
+                  </div>
+                  <div class="journey-badges">
+                    <span class="direct-badge">{{ t('results.direct') }}</span>
+                    <span class="train-id">{{ trip.trainNumber }}</span>
+                  </div>
+                </div>
+
+                <!-- Arrival -->
+                <div class="time-block arrival">
+                  <span class="trip-time">{{ trip.arrivalTime | slice:11:16 }}</span>
+                  <span class="trip-station">{{ trip.arrivalStation.name }}</span>
+                </div>
+              </div>
+
+              <!-- Seats availability -->
+              <div class="trip-footer">
+                <div class="seats-info">
+                  <span class="seat-badge standard">
+                    🟢 {{ trip.availableSeats.standardClass }} {{ t('results.seats_standard') }}
+                  </span>
+                  <span class="seat-badge first">
+                    ✨ {{ trip.availableSeats.firstClass }} {{ t('results.seats_first') }}
+                  </span>
+                </div>
+
+                <div class="trip-pricing">
+                  <div class="price-box">
+                    <span class="price-prefix">{{ t('results.from_price') }}</span>
+                    <span class="price-amount">{{ trip.startingPrice | currency:'EUR':'symbol':'1.2-2' }}</span>
+                  </div>
+                  <button type="button" class="select-trip-btn">
+                    {{ t('results.select_btn') }} →
+                  </button>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  }
+</div>

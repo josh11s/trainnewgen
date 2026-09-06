@@ -1,0 +1,46 @@
+import { Injectable } from '@angular/core';
+import { HttpClient, HttpParams } from '@angular/common/http';
+import { Observable, catchError, of } from 'rxjs';
+import { Station, Trip, TripSearchParams } from '../models/trip.model';
+import { ConfigService } from './config.service';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class TripService {
+  private readonly defaultStations: Station[] = [];
+
+  constructor(
+    private http: HttpClient,
+    private configService: ConfigService
+  ) {}
+
+  private get baseUrl(): string {
+    return this.configService.apiUrl;
+  }
+
+  getStations(): Observable<Station[]> {
+    return this.http.get<Station[]>(`${this.baseUrl}/stations`).pipe(
+      catchError((err) => {
+        console.warn('Failed to load stations from backend:', err);
+        return of(this.defaultStations);
+      })
+    );
+  }
+
+  searchTrips(params: TripSearchParams): Observable<Trip[]> {
+    const httpParams = new HttpParams()
+      .set('origin', params.origin)
+      .set('destination', params.destination)
+      .set('date', params.date)
+      .set('adults', params.adults.toString())
+      .set('children', params.children.toString());
+
+    return this.http.get<Trip[]>(`${this.baseUrl}/trips/search`, { params: httpParams }).pipe(
+      catchError((err) => {
+        console.warn('Failed to search trips from backend:', err);
+        return of([]);
+      })
+    );
+  }
+}
