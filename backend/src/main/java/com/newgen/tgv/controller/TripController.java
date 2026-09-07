@@ -1,12 +1,17 @@
 package com.newgen.tgv.controller;
 
 import com.newgen.tgv.dto.TripPageResponse;
+import com.newgen.tgv.dto.error.BusinessErrorResponse;
+import com.newgen.tgv.dto.error.ValidationErrorResponse;
+import com.newgen.tgv.dto.seat.TripSeatsResponse;
+import com.newgen.tgv.service.SeatService;
 import com.newgen.tgv.service.TripService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -18,16 +23,9 @@ import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
-
-import com.newgen.tgv.dto.error.BusinessErrorResponse;
-import com.newgen.tgv.dto.error.ValidationErrorResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
 
 @Tag(name = "Trips", description = "Operations related to high-speed train journeys and schedules")
 @Validated
@@ -36,9 +34,11 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 public class TripController {
 
     private final TripService tripService;
+    private final SeatService seatService;
 
-    public TripController(TripService tripService) {
+    public TripController(TripService tripService, SeatService seatService) {
         this.tripService = tripService;
+        this.seatService = seatService;
     }
 
     @Operation(
@@ -97,5 +97,32 @@ public class TripController {
         Pageable pageable = PageRequest.of(page, size, Sort.by("departureTime").ascending());
         TripPageResponse results = tripService.searchTrips(origin, destination, date, adults, children, pageable);
         return ResponseEntity.ok(results);
+    }
+
+    @Operation(
+            summary = "Get seat map and availability for a trip",
+            description = "Retrieves all 60 seats organized in 2 coaches (Coach 1 First Class, Coach 2 Standard Class) with seat codes, statuses, and prices."
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Seat map retrieved successfully",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = TripSeatsResponse.class)
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Trip not found"
+            )
+    })
+    @GetMapping("/{tripId}/seats")
+    public ResponseEntity<TripSeatsResponse> getTripSeats(
+            @Parameter(description = "Trip ID", example = "1")
+            @PathVariable("tripId") Long tripId
+    ) {
+        TripSeatsResponse response = seatService.getSeatsForTrip(tripId);
+        return ResponseEntity.ok(response);
     }
 }

@@ -231,7 +231,7 @@
                     <span class="price-prefix">{{ t('results.from_price') }}</span>
                     <span class="price-amount">{{ trip.startingPrice | currency:'EUR':'symbol':'1.2-2' }}</span>
                   </div>
-                  <button type="button" class="select-trip-btn">
+                  <button type="button" class="select-trip-btn" (click)="selectTrip(trip)">
                     {{ t('results.select_btn') }} →
                   </button>
                 </div>

@@ -1,6 +1,7 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { TripService } from '../../core/services/trip.service';
 import { TranslationService } from '../../core/services/translation.service';
 import { Station, Trip } from '../../core/models/trip.model';
@@ -36,12 +37,23 @@ export class TripSearchComponent implements OnInit {
   todayString = '';
 
   constructor(
+    private router: Router,
     private tripService: TripService,
     private translationService: TranslationService
   ) {
     const today = new Date();
     this.todayString = today.toISOString().split('T')[0];
     this.date = this.todayString;
+  }
+
+  selectTrip(trip: Trip): void {
+    this.router.navigate(['/trips', trip.id, 'seats'], {
+      queryParams: {
+        passengers: this.totalPassengers,
+        adults: this.adults,
+        children: this.children
+      }
+    });
   }
 
   ngOnInit(): void {

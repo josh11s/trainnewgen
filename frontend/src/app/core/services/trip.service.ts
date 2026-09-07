@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, catchError, of, throwError } from 'rxjs';
 import { Station, TripPageResponse, TripSearchParams } from '../models/trip.model';
+import { TripSeatsResponse } from '../models/seat.model';
 import { ConfigService } from './config.service';
 
 @Injectable({
@@ -39,6 +40,14 @@ export class TripService {
       .set('size', (params.size ?? 5).toString());
 
     return this.http.get<TripPageResponse>(`${this.baseUrl}/trips/search`, { params: httpParams }).pipe(
+      catchError((err) => {
+        return throwError(() => err);
+      })
+    );
+  }
+
+  getTripSeats(tripId: number): Observable<TripSeatsResponse> {
+    return this.http.get<TripSeatsResponse>(`${this.baseUrl}/trips/${tripId}/seats`).pipe(
       catchError((err) => {
         return throwError(() => err);
       })

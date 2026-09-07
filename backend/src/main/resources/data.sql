@@ -20,6 +20,7 @@ INSERT INTO trips (
     arrival_time, 
     duration_minutes, 
     base_price, 
+    first_class_price,
     standard_seats_available, 
     first_seats_available
 )
@@ -31,8 +32,9 @@ SELECT
     (CURRENT_DATE + (d.day_offset * INTERVAL '1 day') + t.dep_time + (t.duration * INTERVAL '1 minute'))::timestamp AS arrival_time,
     t.duration AS duration_minutes,
     t.price AS base_price,
-    t.standard_seats AS standard_seats_available,
-    t.first_seats AS first_seats_available
+    (t.price + 20.00) AS first_class_price,
+    30 AS standard_seats_available,
+    30 AS first_seats_available
 FROM (
     VALUES 
         -- Paris Montparnasse -> Rennes (10 trains / day)

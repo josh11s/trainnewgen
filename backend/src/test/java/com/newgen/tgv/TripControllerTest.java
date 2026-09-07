@@ -30,6 +30,9 @@ class TripControllerTest {
     @MockitoBean
     private TripService tripService;
 
+    @MockitoBean
+    private com.newgen.tgv.service.SeatService seatService;
+
     @Test
     void searchTrips_whenValidParameters_shouldReturn200() throws Exception {
         TripPageResponse response = new TripPageResponse(Collections.emptyList(), 0, 5, 0, 0, true, true);
@@ -105,5 +108,57 @@ class TripControllerTest {
                 .andExpect(jsonPath("$.status").value(422))
                 .andExpect(jsonPath("$.errorCode").value("error.business.max_passengers_exceeded"))
                 .andExpect(jsonPath("$.params.maxAllowed").value(9));
+    }
+
+    @Test
+    void getTripSeats_whenTripExists_shouldReturn200WithCoachesAndSeats() throws Exception {
+        com.newgen.tgv.dto.StationResponse dep = new com.newgen.tgv.dto.StationResponse("FRPAR", "Paris Montparnasse", "Paris");
+        com.newgen.tgv.dto.StationResponse arr = new com.newgen.tgv.dto.StationResponse("FRRNS", "Rennes", "Rennes");
+        com.newgen.tgv.dto.seat.SeatPricingResponse pricing = new com.newgen.tgv.dto.seat.SeatPricingResponse(new java.math.BigDecimal("35.00"), new java.math.BigDecimal("55.00"));
+
+        com.newgen.tgv.dto.seat.SeatResponse seat1 = new com.newgen.tgv.dto.seat.SeatResponse(
+                1L, 1, "1-01", 1, com.newgen.tgv.model.CoachClass.FIRST,
+                com.newgen.tgv.model.SeatPosition.SOLO, com.newgen.tgv.model.SeatStatus.AVAILABLE, new java.math.BigDecimal("55.00")
+        );
+        com.newgen.tgv.dto.seat.CoachSeatsResponse coach1 = new com.newgen.tgv.dto.seat.CoachSeatsResponse(
+                1, com.newgen.tgv.model.CoachClass.FIRST, new java.math.BigDecimal("55.00"), 30, 30, java.util.List.of(seat1)
+        );
+        com.newgen.tgv.dto.seat.CoachSeatsResponse coach2 = new com.newgen.tgv.dto.seat.CoachSeatsResponse(
+                2, com.newgen.tgv.model.CoachClass.STANDARD, new java.math.BigDecimal("35.00"), 30, 30, java.util.Collections.emptyList()
+        );
+
+        com.newgen.tgv.dto.seat.TripSeatsResponse response = new com.newgen.tgv.dto.seat.TripSeatsResponse(
+                1L, "NGT-8101", dep, arr,
+                java.time.LocalDateTime.of(2026, 9, 10, 8, 0),
+                java.time.LocalDateTime.of(2026, 9, 10, 9, 30),
+                pricing, 60, 60, java.util.List.of(coach1, coach2)
+        );
+
+        when(seatService.getSeatsForTrip(1L)).thenReturn(response);
+
+        mockMvc.perform(get("/api/v1/trips/1/seats"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tripId").value(1))
+                .andExpect(jsonPath("$.trainNumber").value("NGT-8101"))
+                .andExpect(jsonPath("$.totalSeats").value(60))
+                .andExpect(jsonPath("$.coaches.length()").value(2))
+                .andExpect(jsonPath("$.coaches[0].coachNumber").value(1))
+                .andExpect(jsonPath("$.coaches[0].coachClass").value("FIRST"))
+                .andExpect(jsonPath("$.coaches[0].price").value(55.00))
+                .andExpect(jsonPath("$.coaches[1].coachNumber").value(2))
+                .andExpect(jsonPath("$.coaches[1].coachClass").value("STANDARD"))
+                .andExpect(jsonPath("$.coaches[1].price").value(35.00));
+    }
+
+    @Test
+    void getTripSeats_whenTripNotFound_shouldReturn404() throws Exception {
+        when(seatService.getSeatsForTrip(999L))
+                .thenThrow(new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.NOT_FOUND, "Trip not found with id 999"
+                ));
+
+        mockMvc.perform(get("/api/v1/trips/999/seats"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404));
     }
 }

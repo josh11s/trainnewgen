@@ -1,0 +1,354 @@
+<div class="seat-selection-page">
+  <!-- Top Navigation -->
+  <div class="header-nav">
+    <button type="button" class="back-link-btn" (click)="goBack()">
+      {{ t('seats.back') }}
+    </button>
+  </div>
+
+  @if (loading()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <p>Chargement du plan de train et des sièges...</p>
+    </div>
+  } @else if (error()) {
+    <div class="error-banner">
+      ⚠️ {{ error() }}
+      <button type="button" class="retry-btn" (click)="tripId() && loadSeats(tripId()!)">Réessayer</button>
+    </div>
+  } @else if (tripData(); as data) {
+    <!-- Trip Journey Banner -->
+    <div class="trip-banner">
+      <div class="trip-banner-main">
+        <div class="station-block departure">
+          <span class="time">{{ data.departureTime | slice:11:16 }}</span>
+          <span class="station">{{ data.departureStation.name }}</span>
+        </div>
+
+        <div class="journey-arrow">
+          <span class="train-badge">{{ data.trainNumber }}</span>
+          <div class="arrow-line">
+            <span class="dot"></span>
+            <div class="line"></div>
+            <span class="dot"></span>
+          </div>
+        </div>
+
+        <div class="station-block arrival">
+          <span class="time">{{ data.arrivalTime | slice:11:16 }}</span>
+          <span class="station">{{ data.arrivalStation.name }}</span>
+        </div>
+      </div>
+
+      <!-- Quota Status -->
+      <div class="quota-pill" [class.completed]="isQuotaFulfilled()">
+        <span class="quota-icon">👥</span>
+        <span class="quota-text">
+          {{ t('seats.required_count', { selected: selectedSeats().length, total: passengersQuota() }) }}
+        </span>
+      </div>
+    </div>
+
+    <!-- Legend Bar -->
+    <div class="legend-bar">
+      <div class="legend-item">
+        <span class="seat-sample available"></span>
+        <span>{{ t('seats.legend.available') }}</span>
+      </div>
+      <div class="legend-item">
+        <span class="seat-sample selected">✓</span>
+        <span>{{ t('seats.legend.selected') }}</span>
+      </div>
+      <div class="legend-item">
+        <span class="seat-sample occupied">✕</span>
+        <span>{{ t('seats.legend.occupied') }}</span>
+      </div>
+      <div class="legend-item">
+        <span class="position-badge">🪟 Fenêtre</span>
+        <span class="position-badge">🚶 Couloir</span>
+      </div>
+    </div>
+
+    <!-- Coach Filter Tabs -->
+    <div class="coach-tabs-nav">
+      <button
+        type="button"
+        class="coach-tab-btn"
+        [class.active]="activeCoachTab() === 0"
+        (click)="activeCoachTab.set(0)"
+      >
+        🚆 Train complet
+      </button>
+      <button
+        type="button"
+        class="coach-tab-btn"
+        [class.active]="activeCoachTab() === 1"
+        (click)="activeCoachTab.set(1)"
+      >
+        ✨ Voiture 1 – 1ère Classe ({{ data.pricing.first | currency:'EUR':'symbol':'1.0-0' }})
+      </button>
+      <button
+        type="button"
+        class="coach-tab-btn"
+        [class.active]="activeCoachTab() === 2"
+        (click)="activeCoachTab.set(2)"
+      >
+        🟢 Voiture 2 – 2nde Classe ({{ data.pricing.standard | currency:'EUR':'symbol':'1.0-0' }})
+      </button>
+    </div>
+
+    <!-- Train Track & Wagons -->
+    <div class="train-track-container">
+      <div class="train-direction-indicator">
+        <span class="train-front-icon">🚄</span>
+        <span class="direction-text">{{ t('seats.locomotive') }}</span>
+      </div>
+
+      <div class="train-wagons-list">
+        @for (coach of data.coaches; track coach.coachNumber) {
+          @if (activeCoachTab() === 0 || activeCoachTab() === coach.coachNumber) {
+            <!-- Real Train Wagon Card -->
+            <div class="wagon-card" [class.first-class]="coach.coachClass === 'FIRST'">
+              <!-- Wagon Exterior Header -->
+              <div class="wagon-header">
+                <div class="wagon-title-box">
+                  <span class="wagon-badge">{{ t('seats.coach_label') }} {{ coach.coachNumber }}</span>
+                  <span class="wagon-class-name" [class.first]="coach.coachClass === 'FIRST'">
+                    {{ coach.coachClass === 'FIRST' ? t('seats.first_class') : t('seats.standard_class') }}
+                  </span>
+                </div>
+                <div class="wagon-price-box">
+                  <span class="price-val">{{ coach.price | currency:'EUR':'symbol':'1.2-2' }}</span>
+                  <span class="price-unit">/ place</span>
+                </div>
+              </div>
+
+              <!-- Wagon Body Shell (Visual Train Car with Windows & Central Aisle) -->
+              <div class="wagon-fuselage">
+                <!-- Front Door Platform -->
+                <div class="platform-vestibule top-vestibule">
+                  <span class="door-tag">🚪 Porte d'accès</span>
+                  <span class="vestibule-line"></span>
+                  <span class="toilet-tag">🚻 Toilettes</span>
+                </div>
+
+                <!-- Train Cabin Floor Plan -->
+                <div class="cabin-grid-wrapper">
+                  <!-- Left Windows Column -->
+                  <div class="windows-column left-windows">
+                    <span class="window-label">Fenêtre</span>
+                    @for (row of getCoachRows(coach); track row.rowNumber) {
+                      <div class="window-slot" title="Fenêtre gauche">
+                        <span class="window-glass"></span>
+                      </div>
+                    }
+                  </div>
+
+                  <!-- Seats Interior (3 Left - AISLE - 2 Right) -->
+                  <div class="cabin-rows-container">
+                    @for (row of getCoachRows(coach); track row.rowNumber) {
+                      <div class="wagon-row">
+                        <!-- Row indicator -->
+                        <span class="row-num" title="Rangée {{ row.rowNumber }}">R{{ row.rowNumber }}</span>
+
+                        <!-- Left Bay: 3 Seats -->
+                        <div class="seat-bay bay-left-3">
+                          @for (seat of row.leftSeats; track seat.id; let idx = $index) {
+                            <button
+                              type="button"
+                              class="seat-box"
+                              [class.seat-window]="idx === 0"
+                              [class.seat-aisle]="idx === 2"
+                              [class.is-available]="seat.status === 'AVAILABLE'"
+                              [class.is-selected]="isSeatSelected(seat.id)"
+                              [class.is-occupied]="seat.status !== 'AVAILABLE'"
+                              [disabled]="seat.status !== 'AVAILABLE'"
+                              (click)="toggleSeat(seat)"
+                              [title]="seat.seatCode + ' - ' + (idx === 0 ? 'Fenêtre' : (idx === 2 ? 'Couloir' : 'Milieu')) + ' (' + (seat.price | currency:'EUR':'symbol':'1.2-2') + ')'"
+                            >
+                              <span class="seat-code">{{ seat.seatCode }}</span>
+                              <span class="seat-icon">
+                                @if (isSeatSelected(seat.id)) {
+                                  ✓
+                                } @else if (seat.status !== 'AVAILABLE') {
+                                  ✕
+                                } @else if (idx === 0) {
+                                  🪟
+                                } @else if (idx === 2) {
+                                  🚶
+                                } @else {
+                                  💺
+                                }
+                              </span>
+                              <span class="seat-price">{{ seat.price | currency:'EUR':'symbol':'1.0-0' }}</span>
+                            </button>
+                          }
+                        </div>
+
+                        <!-- Central Aisle (Couloir au milieu) -->
+                        <div class="central-aisle" title="Couloir central">
+                          <div class="aisle-lane">
+                            <span class="aisle-guide-arrow">▲</span>
+                            <span class="aisle-text">COULOIR</span>
+                            <span class="aisle-guide-arrow">▲</span>
+                          </div>
+                        </div>
+
+                        <!-- Right Bay: 2 Seats -->
+                        <div class="seat-bay bay-right-2">
+                          @for (seat of row.rightSeats; track seat.id; let idx = $index) {
+                            <button
+                              type="button"
+                              class="seat-box"
+                              [class.seat-aisle]="idx === 0"
+                              [class.seat-window]="idx === 1"
+                              [class.is-available]="seat.status === 'AVAILABLE'"
+                              [class.is-selected]="isSeatSelected(seat.id)"
+                              [class.is-occupied]="seat.status !== 'AVAILABLE'"
+                              [disabled]="seat.status !== 'AVAILABLE'"
+                              (click)="toggleSeat(seat)"
+                              [title]="seat.seatCode + ' - ' + (idx === 1 ? 'Fenêtre' : 'Couloir') + ' (' + (seat.price | currency:'EUR':'symbol':'1.2-2') + ')'"
+                            >
+                              <span class="seat-code">{{ seat.seatCode }}</span>
+                              <span class="seat-icon">
+                                @if (isSeatSelected(seat.id)) {
+                                  ✓
+                                } @else if (seat.status !== 'AVAILABLE') {
+                                  ✕
+                                } @else if (idx === 1) {
+                                  🪟
+                                } @else {
+                                  🚶
+                                }
+                              </span>
+                              <span class="seat-price">{{ seat.price | currency:'EUR':'symbol':'1.0-0' }}</span>
+                            </button>
+                          }
+                        </div>
+                      </div>
+                    }
+                  </div>
+
+                  <!-- Right Windows Column -->
+                  <div class="windows-column right-windows">
+                    <span class="window-label">Fenêtre</span>
+                    @for (row of getCoachRows(coach); track row.rowNumber) {
+                      <div class="window-slot" title="Fenêtre droite">
+                        <span class="window-glass"></span>
+                      </div>
+                    }
+                  </div>
+                </div>
+
+                <!-- Back Door Platform -->
+                <div class="platform-vestibule bottom-vestibule">
+                  <span class="luggage-tag">🧳 Bagages</span>
+                  <span class="vestibule-line"></span>
+                  <span class="door-tag">🚪 Porte d'accès</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Inter-coach Gangway (if displaying full train and not the last coach) -->
+            @if (activeCoachTab() === 0 && !$last) {
+              <div class="inter-wagon-gangway">
+                <div class="gangway-bellows"></div>
+                <div class="gangway-door">
+                  <span>Passage Inter-Voitures</span>
+                </div>
+                <div class="gangway-bellows"></div>
+              </div>
+            }
+          }
+        }
+      </div>
+    </div>
+
+    <!-- Confirmation Modal if payment completed -->
+    @if (paymentConfirmed()) {
+      <div class="payment-modal-backdrop">
+        <div class="payment-modal-card">
+          <div class="success-icon">🎉</div>
+          <h3 class="modal-title">Paiement Validé !</h3>
+          <p class="modal-subtitle">Vos billets NewGen TGV sont confirmés.</p>
+
+          <div class="tickets-summary">
+            <div class="summary-line">
+              <span>Train :</span>
+              <strong>{{ data.trainNumber }}</strong>
+            </div>
+            <div class="summary-line">
+              <span>Trajet :</span>
+              <strong>{{ data.departureStation.name }} → {{ data.arrivalStation.name }}</strong>
+            </div>
+            <div class="summary-line">
+              <span>Places réservées :</span>
+              <div class="seat-pills-row">
+                @for (seat of selectedSeats(); track seat.id) {
+                  <span class="seat-pill" [class.first]="seat.coachClass === 'FIRST'">
+                    {{ seat.seatCode }} ({{ seat.coachClass === 'FIRST' ? '1ère' : '2nde' }})
+                  </span>
+                }
+              </div>
+            </div>
+            <div class="summary-line total-line">
+              <span>Montant payé :</span>
+              <span class="total-val">{{ totalAmount() | currency:'EUR':'symbol':'1.2-2' }}</span>
+            </div>
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" class="finish-btn" (click)="goBack()">
+              Retour à la recherche
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Sticky Bottom Action Bar -->
+    <div class="bottom-action-bar">
+      <div class="action-bar-content">
+        <!-- Selected Seats Details -->
+        <div class="selection-summary">
+          <span class="summary-label">{{ t('seats.selected_summary') }}</span>
+          @if (selectedSeats().length === 0) {
+            <span class="none-hint">{{ t('seats.none_selected') }}</span>
+          } @else {
+            <div class="selected-tags">
+              @for (seat of selectedSeats(); track seat.id) {
+                <span class="seat-tag" (click)="toggleSeat(seat)" title="Cliquez pour retirer ce siège">
+                  {{ seat.seatCode }} ({{ seat.coachClass === 'FIRST' ? '1ère' : '2nde' }}) ✕
+                </span>
+              }
+            </div>
+          }
+        </div>
+
+        <!-- Total -->
+        <div class="total-box">
+          <span class="total-label">{{ t('seats.total_amount') }}</span>
+          <span class="total-amount">{{ totalAmount() | currency:'EUR':'symbol':'1.2-2' }}</span>
+        </div>
+
+        <!-- Pay Button -->
+        <div class="action-btn-wrapper">
+          <button
+            type="button"
+            class="pay-btn"
+            [disabled]="selectedSeats().length === 0"
+            (click)="onPay()"
+          >
+            <span class="pay-icon">💳</span>
+            <span class="pay-label">
+              {{ t('seats.pay_btn') }}
+              @if (selectedSeats().length > 0) {
+                • {{ totalAmount() | currency:'EUR':'symbol':'1.2-2' }}
+              }
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+</div>

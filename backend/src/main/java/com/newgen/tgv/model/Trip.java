@@ -37,6 +37,9 @@ public class Trip {
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal basePrice;
 
+    @Column(name = "first_class_price", precision = 10, scale = 2)
+    private BigDecimal firstClassPrice;
+
     @Column(nullable = false)
     private Integer standardSeatsAvailable;
 
@@ -49,6 +52,14 @@ public class Trip {
     public Trip(String trainNumber, Station departureStation, Station arrivalStation,
                 LocalDateTime departureTime, LocalDateTime arrivalTime, Integer durationMinutes,
                 BigDecimal basePrice, Integer standardSeatsAvailable, Integer firstSeatsAvailable) {
+        this(trainNumber, departureStation, arrivalStation, departureTime, arrivalTime, durationMinutes,
+                basePrice, basePrice != null ? basePrice.multiply(java.math.BigDecimal.valueOf(1.5)).setScale(2, java.math.RoundingMode.HALF_UP) : null,
+                standardSeatsAvailable, firstSeatsAvailable);
+    }
+
+    public Trip(String trainNumber, Station departureStation, Station arrivalStation,
+                LocalDateTime departureTime, LocalDateTime arrivalTime, Integer durationMinutes,
+                BigDecimal basePrice, BigDecimal firstClassPrice, Integer standardSeatsAvailable, Integer firstSeatsAvailable) {
         this.trainNumber = trainNumber;
         this.departureStation = departureStation;
         this.arrivalStation = arrivalStation;
@@ -56,6 +67,7 @@ public class Trip {
         this.arrivalTime = arrivalTime;
         this.durationMinutes = durationMinutes;
         this.basePrice = basePrice;
+        this.firstClassPrice = firstClassPrice;
         this.standardSeatsAvailable = standardSeatsAvailable;
         this.firstSeatsAvailable = firstSeatsAvailable;
     }
@@ -122,6 +134,17 @@ public class Trip {
 
     public void setBasePrice(BigDecimal basePrice) {
         this.basePrice = basePrice;
+    }
+
+    public BigDecimal getFirstClassPrice() {
+        if (firstClassPrice != null) {
+            return firstClassPrice;
+        }
+        return basePrice != null ? basePrice.multiply(java.math.BigDecimal.valueOf(1.5)).setScale(2, java.math.RoundingMode.HALF_UP) : null;
+    }
+
+    public void setFirstClassPrice(BigDecimal firstClassPrice) {
+        this.firstClassPrice = firstClassPrice;
     }
 
     public Integer getStandardSeatsAvailable() {
