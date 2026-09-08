@@ -11,11 +11,13 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -160,5 +162,45 @@ class TripControllerTest {
         mockMvc.perform(get("/api/v1/trips/999/seats"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404));
+    }
+
+    @Test
+    void paySeats_whenSeatsAvailable_shouldReturn200WithConfirmedStatus() throws Exception {
+        com.newgen.tgv.dto.seat.PaymentResponse response = new com.newgen.tgv.dto.seat.PaymentResponse(
+                "NGT-REF123", 1L, "NGT-8101",
+                java.util.List.of("1-01"),
+                new java.math.BigDecimal("55.00"),
+                java.time.LocalDateTime.now(),
+                "CONFIRMED"
+        );
+
+        when(seatService.processPayment(eq(1L), any())).thenReturn(response);
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/v1/trips/1/pay")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"seatIds\": [101]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.bookingReference").value("NGT-REF123"))
+                .andExpect(jsonPath("$.status").value("CONFIRMED"))
+                .andExpect(jsonPath("$.totalAmount").value(55.00));
+    }
+
+    @Test
+    void paySeats_whenSeatConflict_shouldReturn409() throws Exception {
+        when(seatService.processPayment(eq(1L), any()))
+                .thenThrow(new com.newgen.tgv.exception.SeatAlreadyReservedException(
+                        "1-01",
+                        List.of(Map.of("id", 101L, "seatCode", "1-01", "status", "LOCKED"))
+                ));
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/v1/trips/1/pay")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"seatIds\": [101]}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.errorCode").value("error.business.seat_already_reserved"))
+                .andExpect(jsonPath("$.params.seats").value("1-01"))
+                .andExpect(jsonPath("$.unavailableSeats[0].seatCode").value("1-01"))
+                .andExpect(jsonPath("$.unavailableSeats[0].status").value("LOCKED"));
     }
 }

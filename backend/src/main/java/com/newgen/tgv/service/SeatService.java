@@ -1,22 +1,22 @@
 package com.newgen.tgv.service;
 
 import com.newgen.tgv.dto.StationResponse;
-import com.newgen.tgv.dto.seat.CoachSeatsResponse;
-import com.newgen.tgv.dto.seat.SeatPricingResponse;
-import com.newgen.tgv.dto.seat.SeatResponse;
-import com.newgen.tgv.dto.seat.TripSeatsResponse;
+import com.newgen.tgv.dto.seat.*;
 import com.newgen.tgv.model.*;
 import com.newgen.tgv.repository.SeatRepository;
 import com.newgen.tgv.repository.TripRepository;
+import com.newgen.tgv.exception.SeatAlreadyReservedException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -26,10 +26,12 @@ public class SeatService {
 
     private final SeatRepository seatRepository;
     private final TripRepository tripRepository;
+    private final TransactionTemplate transactionTemplate;
 
-    public SeatService(SeatRepository seatRepository, TripRepository tripRepository) {
+    public SeatService(SeatRepository seatRepository, TripRepository tripRepository, TransactionTemplate transactionTemplate) {
         this.seatRepository = seatRepository;
         this.tripRepository = tripRepository;
+        this.transactionTemplate = transactionTemplate;
     }
 
     @Transactional
@@ -138,5 +140,125 @@ public class SeatService {
         }
 
         return seatRepository.saveAll(seats);
+    }
+
+    public PaymentResponse processPayment(Long tripId, List<Long> seatIds) {
+        Trip trip = tripRepository.findById(tripId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Trip not found with id " + tripId));
+
+        if (seatIds == null || seatIds.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "At least one seat must be selected");
+        }
+
+        // 1. Transaction 1: Put seats on HOLD immediately and commit so concurrent users see LOCKED right away
+        try {
+            transactionTemplate.execute(status -> {
+                // 1a. Release expired locks
+                seatRepository.releaseExpiredLocksForTrip(tripId, LocalDateTime.now());
+
+                // 1b. Fetch seats
+                List<Seat> seats = seatRepository.findAllById(seatIds);
+                if (seats.size() != seatIds.size()) {
+                    throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Un ou plusieurs sièges sélectionnés sont introuvables");
+                }
+
+                // 1c. Concurrency check: verify each seat belongs to this trip
+                for (Seat seat : seats) {
+                    if (!seat.getTrip().getId().equals(tripId)) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Le siège " + seat.getSeatCode() + " n'appartient pas au voyage " + tripId);
+                    }
+                }
+
+                // 1d. If at least 1 seat is already reserved / locked by another traveler, throw business exception
+                List<Seat> unavailable = seats.stream()
+                        .filter(s -> s.getStatus() != SeatStatus.AVAILABLE)
+                        .toList();
+
+                if (!unavailable.isEmpty()) {
+                    String seatCodes = unavailable.stream()
+                            .map(Seat::getSeatCode)
+                            .collect(Collectors.joining(", "));
+                    List<Map<String, Object>> details = unavailable.stream()
+                            .map(s -> Map.<String, Object>of(
+                                    "id", s.getId(),
+                                    "seatCode", s.getSeatCode(),
+                                    "status", s.getStatus().name()
+                            ))
+                            .toList();
+                    throw new SeatAlreadyReservedException(seatCodes, details);
+                }
+
+                // 1e. Put on HOLD (LOCKED) immediately
+                LocalDateTime holdExpiry = LocalDateTime.now().plusSeconds(180);
+                for (Seat seat : seats) {
+                    seat.setStatus(SeatStatus.LOCKED);
+                    seat.setLockExpiresAt(holdExpiry);
+                }
+                seatRepository.saveAllAndFlush(seats);
+                return null;
+            });
+        } catch (org.springframework.orm.ObjectOptimisticLockingFailureException | jakarta.persistence.OptimisticLockException ex) {
+            // Local domain catch: check fresh DB state to find which seats were taken and their statuses (LOCKED/BOOKED)
+            List<Seat> freshSeats = seatRepository.findAllById(seatIds);
+            List<Seat> unavailable = freshSeats.stream()
+                    .filter(s -> s.getStatus() != SeatStatus.AVAILABLE)
+                    .toList();
+
+            if (unavailable.isEmpty()) {
+                unavailable = freshSeats;
+            }
+
+            String seatCodes = unavailable.stream()
+                    .map(Seat::getSeatCode)
+                    .collect(Collectors.joining(", "));
+
+            List<Map<String, Object>> details = unavailable.stream()
+                    .map(s -> Map.<String, Object>of(
+                            "id", s.getId(),
+                            "seatCode", s.getSeatCode(),
+                            "status", s.getStatus().name()
+                    ))
+                    .toList();
+
+            throw new SeatAlreadyReservedException(seatCodes, details);
+        }
+
+        // 2. Simulate payment latency: hold for 3 seconds! (runs outside any DB transaction to avoid locking rows/connections)
+        try {
+            Thread.sleep(3000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        // 3. Transaction 2: Transition to BOOKED and return response
+        return transactionTemplate.execute(status -> {
+            List<Seat> seats = seatRepository.findAllById(seatIds);
+            BigDecimal firstPrice = trip.getFirstClassPrice();
+            BigDecimal standardPrice = trip.getBasePrice();
+            BigDecimal totalAmount = BigDecimal.ZERO;
+            List<String> bookedCodes = new ArrayList<>();
+
+            for (Seat seat : seats) {
+                seat.setStatus(SeatStatus.BOOKED);
+                seat.setLockExpiresAt(null);
+                bookedCodes.add(seat.getSeatCode());
+
+                BigDecimal price = (seat.getCoachClass() == CoachClass.FIRST) ? firstPrice : standardPrice;
+                totalAmount = totalAmount.add(price);
+            }
+            seatRepository.saveAll(seats);
+
+            String bookingReference = "NGT-" + java.util.UUID.randomUUID().toString().substring(0, 6).toUpperCase();
+
+            return new com.newgen.tgv.dto.seat.PaymentResponse(
+                    bookingReference,
+                    trip.getId(),
+                    trip.getTrainNumber(),
+                    bookedCodes,
+                    totalAmount,
+                    LocalDateTime.now(),
+                    "CONFIRMED"
+            );
+        });
     }
 }

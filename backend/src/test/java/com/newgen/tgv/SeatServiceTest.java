@@ -36,6 +36,14 @@ class SeatServiceTest {
     @Mock
     private TripRepository tripRepository;
 
+    @org.mockito.Spy
+    private org.springframework.transaction.support.TransactionTemplate transactionTemplate = new org.springframework.transaction.support.TransactionTemplate() {
+        @Override
+        public <T> T execute(org.springframework.transaction.support.TransactionCallback<T> action) {
+            return action.doInTransaction(null);
+        }
+    };
+
     @InjectMocks
     private SeatService seatService;
 
@@ -144,5 +152,105 @@ class SeatServiceTest {
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class, () -> seatService.getSeatsForTrip(999L));
         assertEquals(404, ex.getStatusCode().value());
+    }
+
+    @Test
+    void processPayment_whenSeatAlreadyLocked_shouldThrowSeatAlreadyReservedException() {
+        when(tripRepository.findById(1L)).thenReturn(Optional.of(testTrip));
+
+        Seat seat = new Seat(testTrip, 1, CoachClass.FIRST, 1, "1-01", SeatPosition.SOLO, SeatStatus.LOCKED);
+        seat.setId(101L);
+
+        when(seatRepository.findAllById(List.of(101L))).thenReturn(List.of(seat));
+
+        com.newgen.tgv.exception.SeatAlreadyReservedException ex = assertThrows(
+                com.newgen.tgv.exception.SeatAlreadyReservedException.class,
+                () -> seatService.processPayment(1L, List.of(101L))
+        );
+
+        assertEquals(org.springframework.http.HttpStatus.CONFLICT, ex.getHttpStatus());
+        assertEquals(com.newgen.tgv.dto.error.BusinessErrorCode.SEAT_ALREADY_RESERVED, ex.getErrorCode());
+        assertEquals("1-01", ex.getParams().get("seats"));
+    }
+
+    @Test
+    void processPayment_whenSeatAlreadyBooked_shouldThrowSeatAlreadyReservedException() {
+        when(tripRepository.findById(1L)).thenReturn(Optional.of(testTrip));
+
+        Seat seat = new Seat(testTrip, 1, CoachClass.FIRST, 1, "1-01", SeatPosition.SOLO, SeatStatus.BOOKED);
+        seat.setId(101L);
+
+        when(seatRepository.findAllById(List.of(101L))).thenReturn(List.of(seat));
+
+        com.newgen.tgv.exception.SeatAlreadyReservedException ex = assertThrows(
+                com.newgen.tgv.exception.SeatAlreadyReservedException.class,
+                () -> seatService.processPayment(1L, List.of(101L))
+        );
+
+        assertEquals(org.springframework.http.HttpStatus.CONFLICT, ex.getHttpStatus());
+        assertEquals(com.newgen.tgv.dto.error.BusinessErrorCode.SEAT_ALREADY_RESERVED, ex.getErrorCode());
+        assertEquals("1-01", ex.getParams().get("seats"));
+    }
+
+    @Test
+    void processPayment_whenOneOfMultipleSeatsIsAlreadyReserved_shouldThrowSeatAlreadyReservedException() {
+        when(tripRepository.findById(1L)).thenReturn(Optional.of(testTrip));
+
+        Seat seat1 = new Seat(testTrip, 1, CoachClass.FIRST, 1, "1-01", SeatPosition.SOLO, SeatStatus.AVAILABLE);
+        seat1.setId(101L);
+        Seat seat2 = new Seat(testTrip, 1, CoachClass.FIRST, 2, "1-02", SeatPosition.AISLE, SeatStatus.LOCKED);
+        seat2.setId(102L);
+
+        when(seatRepository.findAllById(List.of(101L, 102L))).thenReturn(List.of(seat1, seat2));
+
+        com.newgen.tgv.exception.SeatAlreadyReservedException ex = assertThrows(
+                com.newgen.tgv.exception.SeatAlreadyReservedException.class,
+                () -> seatService.processPayment(1L, List.of(101L, 102L))
+        );
+
+        assertEquals(org.springframework.http.HttpStatus.CONFLICT, ex.getHttpStatus());
+        assertEquals(com.newgen.tgv.dto.error.BusinessErrorCode.SEAT_ALREADY_RESERVED, ex.getErrorCode());
+        assertEquals("1-02", ex.getParams().get("seats"));
+    }
+
+    @Test
+    void processPayment_whenSeatsAvailable_shouldBookWithoutUpdatingTripEntityInTable() {
+        when(tripRepository.findById(1L)).thenReturn(Optional.of(testTrip));
+
+        Seat seat = new Seat(testTrip, 2, CoachClass.STANDARD, 1, "2-01", SeatPosition.WINDOW, SeatStatus.AVAILABLE);
+        seat.setId(201L);
+
+        when(seatRepository.findAllById(List.of(201L))).thenReturn(List.of(seat));
+
+        com.newgen.tgv.dto.seat.PaymentResponse response = seatService.processPayment(1L, List.of(201L));
+
+        assertNotNull(response);
+        assertEquals("CONFIRMED", response.status());
+        assertEquals(List.of("2-01"), response.bookedSeats());
+        assertEquals(SeatStatus.BOOKED, seat.getStatus());
+
+        // Verify that tripRepository.save is never called, as seats available are calculated dynamically and not maintained in trips table
+        verify(tripRepository, never()).save(any(Trip.class));
+    }
+
+    @Test
+    void processPayment_whenOptimisticLockCollisionOccurs_shouldCatchLocallyAndThrowSeatAlreadyReservedException() {
+        when(tripRepository.findById(1L)).thenReturn(Optional.of(testTrip));
+
+        Seat seat = new Seat(testTrip, 2, CoachClass.STANDARD, 1, "2-01", SeatPosition.WINDOW, SeatStatus.AVAILABLE);
+        seat.setId(201L);
+
+        when(seatRepository.findAllById(List.of(201L))).thenReturn(List.of(seat));
+        when(seatRepository.saveAllAndFlush(any())).thenThrow(
+                new org.springframework.orm.ObjectOptimisticLockingFailureException(Seat.class, 201L)
+        );
+
+        com.newgen.tgv.exception.SeatAlreadyReservedException ex = assertThrows(
+                com.newgen.tgv.exception.SeatAlreadyReservedException.class,
+                () -> seatService.processPayment(1L, List.of(201L))
+        );
+
+        assertEquals(org.springframework.http.HttpStatus.CONFLICT, ex.getHttpStatus());
+        assertEquals(com.newgen.tgv.dto.error.BusinessErrorCode.SEAT_ALREADY_RESERVED, ex.getErrorCode());
     }
 }

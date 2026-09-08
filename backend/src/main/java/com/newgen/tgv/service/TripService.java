@@ -19,6 +19,9 @@ import java.time.LocalTime;
 import java.util.Map;
 
 import com.newgen.tgv.dto.error.BusinessErrorCode;
+import com.newgen.tgv.model.CoachClass;
+import com.newgen.tgv.model.SeatStatus;
+import com.newgen.tgv.repository.SeatRepository;
 
 @Service
 @Transactional(readOnly = true)
@@ -27,9 +30,11 @@ public class TripService {
     public static final int MAX_PASSENGERS_PER_BOOKING = 9;
 
     private final TripRepository tripRepository;
+    private final SeatRepository seatRepository;
 
-    public TripService(TripRepository tripRepository) {
+    public TripService(TripRepository tripRepository, SeatRepository seatRepository) {
         this.tripRepository = tripRepository;
+        this.seatRepository = seatRepository;
     }
 
     public TripPageResponse searchTrips(
@@ -72,9 +77,21 @@ public class TripService {
 
         StationResponse departureResponse = new StationResponse(dep.getCode(), dep.getName(), dep.getCity());
         StationResponse arrivalResponse = new StationResponse(arr.getCode(), arr.getName(), arr.getCity());
+
+        int standardSeats;
+        int firstSeats;
+
+        if (seatRepository != null && seatRepository.existsByTripId(trip.getId())) {
+            standardSeats = (int) seatRepository.countByTripIdAndCoachClassAndStatus(trip.getId(), CoachClass.STANDARD, SeatStatus.AVAILABLE);
+            firstSeats = (int) seatRepository.countByTripIdAndCoachClassAndStatus(trip.getId(), CoachClass.FIRST, SeatStatus.AVAILABLE);
+        } else {
+            standardSeats = trip.getStandardSeatsAvailable() != null ? trip.getStandardSeatsAvailable() : 30;
+            firstSeats = trip.getFirstSeatsAvailable() != null ? trip.getFirstSeatsAvailable() : 30;
+        }
+
         AvailableSeatsResponse seatsResponse = new AvailableSeatsResponse(
-                trip.getStandardSeatsAvailable(),
-                trip.getFirstSeatsAvailable()
+                standardSeats,
+                firstSeats
         );
 
         return new TripSearchResponse(

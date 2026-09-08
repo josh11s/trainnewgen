@@ -32,22 +32,28 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 ex.getStatusCode(),
                 ex.getReason() != null ? ex.getReason() : ex.getMessage()
         );
-        problem.setType(URI.create(PROBLEM_BASE_URL + "not-found"));
-        problem.setTitle("Resource Not Found");
+        String typeSlug = ex.getStatusCode().equals(HttpStatus.CONFLICT) ? "conflict" : "not-found";
+        String title = ex.getStatusCode().equals(HttpStatus.CONFLICT) ? "Conflict" : "Resource Not Found";
+        problem.setType(URI.create(PROBLEM_BASE_URL + typeSlug));
+        problem.setTitle(title);
         return problem;
     }
 
     @ExceptionHandler(BusinessRuleException.class)
     public ProblemDetail handleBusinessRuleException(BusinessRuleException ex) {
+        HttpStatus status = ex.getHttpStatus() != null ? ex.getHttpStatus() : HttpStatus.UNPROCESSABLE_ENTITY;
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
-                HttpStatus.UNPROCESSABLE_ENTITY,
+                status,
                 ex.getMessage()
         );
         problem.setType(URI.create(PROBLEM_BASE_URL + ex.getErrorCodeValue()));
-        problem.setTitle("Business Rule Violation");
+        problem.setTitle(status == HttpStatus.CONFLICT ? "Seat Conflict" : "Business Rule Violation");
         problem.setProperty("errorCode", ex.getErrorCodeValue());
         if (!ex.getParams().isEmpty()) {
             problem.setProperty("params", ex.getParams());
+        }
+        if (ex instanceof SeatAlreadyReservedException seatEx && !seatEx.getUnavailableSeats().isEmpty()) {
+            problem.setProperty("unavailableSeats", seatEx.getUnavailableSeats());
         }
         return problem;
     }

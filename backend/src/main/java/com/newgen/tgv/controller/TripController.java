@@ -125,4 +125,37 @@ public class TripController {
         TripSeatsResponse response = seatService.getSeatsForTrip(tripId);
         return ResponseEntity.ok(response);
     }
+
+    @Operation(
+            summary = "Simulate payment and book seats",
+            description = "Puts selected seats on HOLD, simulates 3s payment latency, and transitions seats to BOOKED. Returns 409 Conflict if a seat is already held or booked."
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Payment processed and seats booked successfully",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = com.newgen.tgv.dto.seat.PaymentResponse.class)
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "409",
+                    description = "Seat conflict: one or more requested seats are already locked or booked"
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Trip or seats not found"
+            )
+    })
+    @PostMapping("/{tripId}/pay")
+    public ResponseEntity<com.newgen.tgv.dto.seat.PaymentResponse> paySeats(
+            @Parameter(description = "Trip ID", example = "1")
+            @PathVariable("tripId") Long tripId,
+
+            @jakarta.validation.Valid @RequestBody com.newgen.tgv.dto.seat.PaymentRequest request
+    ) {
+        com.newgen.tgv.dto.seat.PaymentResponse response = seatService.processPayment(tripId, request.seatIds());
+        return ResponseEntity.ok(response);
+    }
 }

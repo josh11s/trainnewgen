@@ -53,4 +53,8 @@ export class TripService {
       })
     );
   }
+
+  paySeats(tripId: number, seatIds: number[]): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/trips/${tripId}/pay`, { seatIds });
+  }
 }

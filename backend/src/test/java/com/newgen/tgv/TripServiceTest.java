@@ -30,6 +30,9 @@ class TripServiceTest {
     @Mock
     private TripRepository tripRepository;
 
+    @Mock
+    private com.newgen.tgv.repository.SeatRepository seatRepository;
+
     @InjectMocks
     private TripService tripService;
 

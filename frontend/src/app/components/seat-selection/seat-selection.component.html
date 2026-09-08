@@ -306,6 +306,28 @@
       </div>
     }
 
+    <!-- Conflict Pop-in Modal (Seat Already Reserved / Locked by Another User) -->
+    @if (conflictError()) {
+      <div class="conflict-modal-backdrop">
+        <div class="conflict-modal-card">
+          <div class="conflict-icon">⚠️</div>
+          <h3 class="modal-title">Place déjà réservée</h3>
+          <p class="modal-subtitle">{{ conflictError() }}</p>
+
+          <div class="conflict-info-box">
+            <span class="info-icon">🔄</span>
+            <span>Le plan du train a été mis à jour avec les dernières disponibilités. Veuillez sélectionner un autre siège.</span>
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" class="choose-another-btn" (click)="closeConflictModal()">
+              Choisir une autre place
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
     <!-- Sticky Bottom Action Bar -->
     <div class="bottom-action-bar">
       <div class="action-bar-content">
@@ -336,16 +358,21 @@
           <button
             type="button"
             class="pay-btn"
-            [disabled]="selectedSeats().length === 0"
+            [disabled]="selectedSeats().length === 0 || paying()"
             (click)="onPay()"
           >
-            <span class="pay-icon">💳</span>
-            <span class="pay-label">
-              {{ t('seats.pay_btn') }}
-              @if (selectedSeats().length > 0) {
-                • {{ totalAmount() | currency:'EUR':'symbol':'1.2-2' }}
-              }
-            </span>
+            @if (paying()) {
+              <span class="btn-spinner"></span>
+              <span class="pay-label">Paiement en cours (3s)...</span>
+            } @else {
+              <span class="pay-icon">💳</span>
+              <span class="pay-label">
+                {{ t('seats.pay_btn') }}
+                @if (selectedSeats().length > 0) {
+                  • {{ totalAmount() | currency:'EUR':'symbol':'1.2-2' }}
+                }
+              </span>
+            }
           </button>
         </div>
       </div>

@@ -26,6 +26,8 @@ export class SeatSelectionComponent implements OnInit {
   loading = signal<boolean>(true);
   error = signal<string | null>(null);
   selectedSeats = signal<Seat[]>([]);
+  paying = signal<boolean>(false);
+  conflictError = signal<string | null>(null);
   paymentConfirmed = signal<boolean>(false);
   activeCoachTab = signal<number>(0); // 0: All coaches, 1: Coach 1, 2: Coach 2
 
@@ -134,17 +136,75 @@ export class SeatSelectionComponent implements OnInit {
   }
 
   onPay(): void {
-    if (this.selectedSeats().length === 0) {
+    if (this.selectedSeats().length === 0 || !this.tripId() || this.paying()) {
       return;
     }
 
-    const seatCodes = this.selectedSeats().map(s => s.seatCode).join(', ');
-    const total = this.totalAmount().toFixed(2);
+    this.paying.set(true);
+    this.conflictError.set(null);
 
-    this.paymentConfirmed.set(true);
-    this.toastService.showSuccess(
-      this.t('seats.pay_success', { seats: seatCodes, total })
-    );
+    const tripId = this.tripId()!;
+    const seatIds = this.selectedSeats().map(s => s.id);
+
+    this.tripService.paySeats(tripId, seatIds).subscribe({
+      next: (_res) => {
+        this.paying.set(false);
+        this.paymentConfirmed.set(true);
+        const seatCodes = this.selectedSeats().map(s => s.seatCode).join(', ');
+        const total = this.totalAmount().toFixed(2);
+        this.toastService.showSuccess(
+          this.t('seats.pay_success', { seats: seatCodes, total })
+        );
+      },
+      error: (err) => {
+        this.paying.set(false);
+        if (err.status === 409) {
+          const errorCode = err?.error?.errorCode;
+          const params = err?.error?.params;
+          const unavailableSeats = err?.error?.unavailableSeats as Array<{ id: number; seatCode: string; status: 'LOCKED' | 'BOOKED' | 'AVAILABLE' }>;
+
+          // 1. Immediately disable those seats in the current train map
+          if (Array.isArray(unavailableSeats) && this.tripData()) {
+            const currentData = this.tripData()!;
+            const unavailableMap = new Map(unavailableSeats.map(u => [u.id, u.status]));
+
+            currentData.coaches.forEach(coach => {
+              coach.seats.forEach(s => {
+                if (unavailableMap.has(s.id)) {
+                  s.status = unavailableMap.get(s.id)!;
+                }
+              });
+            });
+            this.tripData.set({ ...currentData });
+          }
+
+          // 2. Clear current selection
+          this.selectedSeats.set([]);
+
+          // 3. Choose singular vs plural translation key
+          let translationKey = errorCode || 'error.business.seat_already_reserved';
+          if (params?.count > 1 || (params?.seats && params.seats.includes(','))) {
+            translationKey = 'error.business.seats_already_reserved';
+          }
+
+          const detailMsg = this.t(translationKey, params);
+          this.conflictError.set(detailMsg);
+
+          // 4. Reload seats to sync complete train state with backend
+          this.loadSeats(tripId);
+        } else {
+          const errMsg =
+            err?.error?.detail ||
+            err?.error?.message ||
+            'Une erreur est survenue lors de la réservation.';
+          this.toastService.showError(errMsg);
+        }
+      }
+    });
+  }
+
+  closeConflictModal(): void {
+    this.conflictError.set(null);
   }
 
   goBack(): void {
